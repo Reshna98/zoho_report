@@ -52670,3 +52670,291 @@ def share_sales_item_Discount_ReportToEmail(request):
             print(e)
             messages.error(request, str(e))
             return redirect(sales_item_discount_details)
+
+# --------------------outstanding receivables---------------------------#
+def outstanding_receivables(request):
+    if 'login_id' in request.session:
+        log_id = request.session['login_id']
+        log_details = LoginDetails.objects.get(id=log_id)
+        if log_details.user_type == 'Company':
+            cmp = CompanyDetails.objects.get(login_details=log_details)
+            dash_details = CompanyDetails.objects.get(login_details=log_details)
+        else:
+            cmp = StaffDetails.objects.get(login_details=log_details).company
+            dash_details = StaffDetails.objects.get(login_details=log_details)
+
+    allmodules = ZohoModules.objects.get(company=cmp)
+
+  
+    customers = Customer.objects.filter(company=cmp)
+
+    
+    customer_data = []
+    for customer in customers:
+        
+        regular_invoices = invoice.objects.filter(customer=customer, company=cmp,status = 'Saved')
+        invoice_numbers = [(inv.invoice_number, float(inv.balance)) for inv in regular_invoices if float(inv.balance) > 0]
+
+       
+        recurring_invoices = RecurringInvoice.objects.filter(customer=customer, company=cmp,status = 'Saved')
+        rec_invoice_numbers = [(rec_inv.rec_invoice_no, float(rec_inv.balance)) for rec_inv in recurring_invoices if float(rec_inv.balance) > 0]
+
+       
+        retainer_invoices = RetainerInvoice.objects.filter(customer_name=customer, company=cmp, is_sent=1)
+        retainer_invoice_numbers = [(ret_inv.retainer_invoice_number, float(ret_inv.balance)) for ret_inv in retainer_invoices if float(ret_inv.balance) > 0]
+
+      
+        invoice_pending_amount = sum([float(inv.balance) for inv in regular_invoices if float(inv.balance) > 0])
+        invoice_pending_count = sum([1 for inv in regular_invoices if float(inv.balance) > 0])
+
+        
+        rec_invoice_pending_amount = sum([float(rec_inv.balance) for rec_inv in recurring_invoices if float(rec_inv.balance) > 0])
+        rec_invoice_pending_count = sum([1 for rec_inv in recurring_invoices if float(rec_inv.balance) > 0])
+
+     
+        retainer_invoice_pending_amount = sum([float(ret_inv.balance) for ret_inv in retainer_invoices if float(ret_inv.balance) > 0])
+        retainer_invoice_pending_count = sum([1 for ret_inv in retainer_invoices if float(ret_inv.balance) > 0])
+
+      
+        total_pending_amount = (
+            invoice_pending_amount + rec_invoice_pending_amount + retainer_invoice_pending_amount
+        )
+        total_pending_count = (
+            invoice_pending_count + rec_invoice_pending_count + retainer_invoice_pending_count
+        )
+
+        if total_pending_amount > 0:
+            customer_data.append({
+                'customer': customer,
+                'invoice_numbers': invoice_numbers,
+                'rec_invoice_numbers': rec_invoice_numbers,
+                'retainer_invoice_numbers': retainer_invoice_numbers,
+                'pending_amount': total_pending_amount,
+                'pending_count': total_pending_count,
+            })
+
+    return render(request, 'zohomodules/Reports/outstanding_receivable.html', {
+        'allmodules': allmodules,
+        'details': dash_details,
+        'log_details': log_details,
+        'customer_data': customer_data,
+        'customers':customers,
+        'cmp':cmp
+        
+    })
+
+def outstanding_receivables_customized(request):
+    if 'login_id' in request.session:
+        log_id = request.session['login_id']
+        log_details = LoginDetails.objects.get(id=log_id)
+        if log_details.user_type == 'Company':
+            cmp = CompanyDetails.objects.get(login_details=log_details)
+            dash_details = CompanyDetails.objects.get(login_details=log_details)
+        else:
+            cmp = StaffDetails.objects.get(login_details=log_details).company
+            dash_details = StaffDetails.objects.get(login_details=log_details)
+
+        allmodules = ZohoModules.objects.get(company=cmp)
+
+        if request.method == 'GET':
+            startDate = request.GET.get('from_date')
+            endDate = request.GET.get('to_date')
+            customer_filter = request.GET.get('customer', 'all')
+
+            if not startDate:
+                startDate = None
+            if not endDate:
+                endDate = None
+
+            customers = Customer.objects.filter(company=cmp)
+            filtered_customers = customers
+
+            if customer_filter != 'all':
+                customer_names = customer_filter.split()
+                filtered_customers = customers.filter(first_name__icontains=customer_names[0], last_name__icontains=customer_names[1])
+
+            customer_data = []
+            for customer in filtered_customers:
+                regular_invoices = invoice.objects.filter(customer=customer, company=cmp,status = 'Saved')
+                if startDate and endDate:
+                    regular_invoices = regular_invoices.filter(date__range=[startDate, endDate])
+                invoice_numbers = [(inv.invoice_number, float(inv.balance)) for inv in regular_invoices if float(inv.balance) > 0]
+
+
+                recurring_invoices = RecurringInvoice.objects.filter(customer=customer, company=cmp,status = 'Saved')
+                if startDate and endDate:
+                    recurring_invoices = recurring_invoices.filter(start_date__range=[startDate, endDate])
+              
+                rec_invoice_numbers = [(rec_inv.rec_invoice_no, float(rec_inv.balance)) for rec_inv in recurring_invoices if float(rec_inv.balance) > 0]
+
+                retainer_invoices = RetainerInvoice.objects.filter(customer_name=customer, company=cmp,is_sent=1)
+                if startDate and endDate:
+                    retainer_invoices = retainer_invoices.filter(retainer_invoice_date__range=[startDate, endDate])
+               
+                retainer_invoice_numbers = [(ret_inv.retainer_invoice_number, float(ret_inv.balance)) for ret_inv in retainer_invoices if float(ret_inv.balance) > 0]
+
+                invoice_pending_amount = sum([float(inv.balance) for inv in regular_invoices if float(inv.balance) > 0])
+                invoice_pending_count = sum([1 for inv in regular_invoices if float(inv.balance) > 0])
+
+        
+                rec_invoice_pending_amount = sum([float(rec_inv.balance) for rec_inv in recurring_invoices if float(rec_inv.balance) > 0])
+                rec_invoice_pending_count = sum([1 for rec_inv in recurring_invoices if float(rec_inv.balance) > 0])
+
+     
+                retainer_invoice_pending_amount = sum([float(ret_inv.balance) for ret_inv in retainer_invoices if float(ret_inv.balance) > 0])
+                retainer_invoice_pending_count = sum([1 for ret_inv in retainer_invoices if float(ret_inv.balance) > 0])
+                total_pending_amount = (
+                    invoice_pending_amount + rec_invoice_pending_amount + retainer_invoice_pending_amount
+                )
+                total_pending_count = (
+                    invoice_pending_count + rec_invoice_pending_count + retainer_invoice_pending_count
+                )
+
+                if total_pending_amount > 0:
+                    customer_data.append({
+                        'customer': customer,
+                        'invoice_numbers': invoice_numbers,
+                        'rec_invoice_numbers': rec_invoice_numbers,
+                        'retainer_invoice_numbers': retainer_invoice_numbers,
+                        'pending_amount': total_pending_amount,
+                        'pending_count': total_pending_count,
+                    })
+
+            return render(request, 'zohomodules/Reports/outstanding_receivable.html', {
+                'allmodules': allmodules,
+                'details': dash_details,
+                'log_details': log_details,
+                'customer_data': customer_data,
+                'startDate': startDate,
+                'endDate': endDate,
+                'customer_filter': customer_filter,
+                'customers': customers,
+                'cmp':cmp
+            })
+    return redirect('/')
+
+
+from django.core.mail import EmailMessage
+def shareaccountreceivables(request):
+    if 'login_id' in request.session:
+        log_id = request.session['login_id']
+        log_details = LoginDetails.objects.get(id=log_id)
+        if log_details.user_type == 'Company':
+            cmp = CompanyDetails.objects.get(login_details=log_details)
+            dash_details = CompanyDetails.objects.get(login_details=log_details)
+        else:
+            cmp = StaffDetails.objects.get(login_details=log_details).company
+            dash_details = StaffDetails.objects.get(login_details=log_details)
+
+        allmodules = ZohoModules.objects.get(company=cmp)
+
+        if request.method == 'POST':
+            emails_string = request.POST.get('email_ids')
+            emails_list = [email.strip() for email in emails_string.split(',')]
+            email_message = request.POST.get('email_message', '')
+
+            startDate = request.POST.get('start')
+            endDate = request.POST.get('end')
+
+            if not startDate:
+                startDate = None
+            if not endDate:
+                endDate = None
+
+            trans = request.POST.get('transaction', '').split(',')
+            trans = [name.strip() for name in trans if name.strip()]
+            print("Transactions:", trans)
+
+            customer_data = []
+
+            if not trans or (len(trans) == 1 and trans[0].lower() == 'all'):
+                customers = Customer.objects.filter(company=cmp)
+            else:
+                filtered_customers = []
+                for name in trans:
+                    try:
+                        first_name, last_name = name.split()
+                        filtered_customers.extend(Customer.objects.filter(company=cmp, first_name__icontains=first_name, last_name__icontains=last_name))
+                    except ValueError:
+                        continue
+                customers = filtered_customers
+
+            for customer in customers:
+                regular_invoices = invoice.objects.filter(customer=customer, company=cmp, status='Saved')
+                if startDate and endDate:
+                    regular_invoices = regular_invoices.filter(date__range=[startDate, endDate])
+                invoice_numbers = [(inv.invoice_number, float(inv.balance)) for inv in regular_invoices if float(inv.balance) > 0]
+
+                recurring_invoices = RecurringInvoice.objects.filter(customer=customer, company=cmp, status='Saved')
+                if startDate and endDate:
+                    recurring_invoices = recurring_invoices.filter(start_date__range=[startDate, endDate])
+                rec_invoice_numbers = [(rec_inv.rec_invoice_no, float(rec_inv.balance)) for rec_inv in recurring_invoices if float(rec_inv.balance) > 0]
+
+                retainer_invoices = RetainerInvoice.objects.filter(customer_name=customer, company=cmp, is_sent=1)
+                if startDate and endDate:
+                    retainer_invoices = retainer_invoices.filter(retainer_invoice_date__range=[startDate, endDate])
+                retainer_invoice_numbers = [(ret_inv.retainer_invoice_number, float(ret_inv.balance)) for ret_inv in retainer_invoices if float(ret_inv.balance) > 0]
+
+                invoice_pending_amount = sum([float(inv.balance) for inv in regular_invoices if float(inv.balance) > 0])
+                invoice_pending_count = sum([1 for inv in regular_invoices if float(inv.balance) > 0])
+
+                rec_invoice_pending_amount = sum([float(rec_inv.balance) for rec_inv in recurring_invoices if float(rec_inv.balance) > 0])
+                rec_invoice_pending_count = sum([1 for rec_inv in recurring_invoices if float(rec_inv.balance) > 0])
+
+                retainer_invoice_pending_amount = sum([float(ret_inv.balance) for ret_inv in retainer_invoices if float(ret_inv.balance) > 0])
+                retainer_invoice_pending_count = sum([1 for ret_inv in retainer_invoices if float(ret_inv.balance) > 0])
+
+                total_pending_amount = invoice_pending_amount + rec_invoice_pending_amount + retainer_invoice_pending_amount
+                total_pending_count = invoice_pending_count + rec_invoice_pending_count + retainer_invoice_pending_count
+
+                if total_pending_amount > 0:
+                    customer_data.append({
+                        'customer': customer,
+                        'invoice_numbers': invoice_numbers,
+                        'rec_invoice_numbers': rec_invoice_numbers,
+                        'retainer_invoice_numbers': retainer_invoice_numbers,
+                        'pending_amount': total_pending_amount,
+                        'pending_count': total_pending_count,
+                    })
+
+            print("Customer Data:", customer_data)
+
+            context = {
+                'allmodules': allmodules,
+                'details': dash_details,
+                'log_details': log_details,
+                'customer_data': customer_data,
+                'customers': customers,
+                'cmp': cmp,
+                'startDate': startDate,
+                'endDate': endDate,
+            }
+
+            template_path = 'zohomodules/Reports/outstanding_receivables_Pdf.html'
+            template = get_template(template_path)
+            html = template.render(context)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+            pdf = result.getvalue()
+
+            if not pdf:
+                raise Exception("Error generating PDF")
+
+            filename = 'Outstanding_Receivables.pdf'
+            subject = "Outstanding Receivables"
+
+            email = EmailMessage(
+                subject,
+                f"Hi,\nPlease find the attached Outstanding Receivables Reports.\n\n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}",
+                settings.EMAIL_HOST_USER,
+                emails_list
+            )
+
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+
+            messages.success(request, 'Outstanding Receivables Reports have been shared via email successfully!')
+            return redirect('outstanding_receivables')
+
+
+

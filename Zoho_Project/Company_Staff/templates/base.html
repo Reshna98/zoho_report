@@ -866,10 +866,18 @@
                     </a>
                     <hr>
                     {% endif %}
-                    {% if allmodules.reports == 1  %}
+                    {% i  f allmodules.reports == 1  %}
                     <a href="{% url 'payment_received_summary' %}" class="d-flex align-items-center gap-2 dropdown-item">
                       <div class="d-flex">
                         <p class="mb-0 fs-3">Payments Received Summary</p>
+                      </div>
+                    </a>
+                    <hr>
+                    {% endif %}
+                    {% if allmodules.reports == 1  %}
+                    <a href="{% url 'outstanding_receivables' %}" class="d-flex align-items-center gap-2 dropdown-item">
+                      <div class="d-flex">
+                        <p class="mb-0 fs-3">Outstanding Receivable</p>
                       </div>
                     </a>
                     <hr>

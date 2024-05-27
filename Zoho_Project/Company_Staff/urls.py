@@ -1028,6 +1028,11 @@ urlpatterns = [
     path('cashflowreport', views.cashflowreport, name='cashflowreport'),
     path('cashflowreport_customized', views.cashflowreport_customized, name='cashflowreport_customized'),
     path('shareCashFlowReportToEmail', views.shareCashFlowReportToEmail, name='shareCashFlowReportToEmail'),
+
+    path('outstanding_receivables', views.outstanding_receivables, name='outstanding_receivables'),
+    path('outstanding_receivables_customized', views.outstanding_receivables_customized, name='outstanding_receivables_customized'),
+    path('shareaccountreceivables', views.shareaccountreceivables, name='shareaccountreceivables'),
+
     
     re_path(r'^static/(?P<path>.*)$', serve,{'document_root': settings.STATIC_ROOT}),
 ]
